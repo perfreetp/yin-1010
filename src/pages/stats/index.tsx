@@ -5,12 +5,39 @@ import classnames from 'classnames';
 import RoleSwitcher from '@/components/RoleSwitcher';
 import StatusTag from '@/components/StatusTag';
 import { useUser } from '@/store/user-context';
-import { mockStalls } from '@/data/stalls';
-import { mockVendors, getExpiringLicenses, getPendingVendors, getExpiringLeases, getAllCategories } from '@/data/vendors';
+import { mockStalls, extendStallLease, updateStall } from '@/data/stalls';
+import {
+  mockVendors,
+  getExpiringLicenses,
+  getPendingVendors,
+  getExpiringLeases,
+  getAllCategories,
+  setVendorRenewalStatus,
+  addReminder,
+  updateVendor
+} from '@/data/vendors';
 import { mockPayments, getMonthRevenue, getTodayRevenue } from '@/data/payments';
+import { Vendor } from '@/types';
 import styles from './index.module.scss';
 
 type TabType = 'overview' | 'vendors' | 'lease';
+
+const NOW_DATE = '2026-06-14';
+const NOW_TIME = '2026-06-14 10:30';
+
+const getStallZone = (vendor: Vendor): string => {
+  if (!vendor.stallId) return '-';
+  const stall = mockStalls.find(s => s.id === vendor.stallId);
+  return stall ? stall.zone : '-';
+};
+
+const getStallNoSafe = (vendor: Vendor): string => {
+  return vendor.stallNo || '未分配';
+};
+
+const getStatusText = (status: string): string => {
+  return status === 'approved' ? '已通过' : status === 'pending' ? '审核中' : '已拒绝';
+};
 
 const StatsPage: React.FC = () => {
   const { currentUser } = useUser();
@@ -18,6 +45,8 @@ const StatsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [zoneFilter, setZoneFilter] = useState<string>('all');
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const stats = useMemo(() => ({
     totalStalls: mockStalls.length,
@@ -28,11 +57,11 @@ const StatsPage: React.FC = () => {
     activeVendors: mockVendors.filter(v => v.auditStatus === 'approved').length,
     expiringLicenses: getExpiringLicenses(30).length,
     pendingAudits: getPendingVendors().length
-  }), []);
+  }), [refreshKey]);
 
-  const categories = useMemo(() => getAllCategories(), []);
+  const categories = useMemo(() => getAllCategories(), [refreshKey]);
   const zones = useMemo(() => [...new Set(mockStalls.map(s => s.zone))], []);
-  const expiringLeases = useMemo(() => getExpiringLeases(30), []);
+  const expiringLeases = useMemo(() => getExpiringLeases(30), [refreshKey]);
 
   const filteredVendors = useMemo(() => {
     let list = mockVendors;
@@ -43,44 +72,113 @@ const StatsPage: React.FC = () => {
       list = list.filter(v => zoneStallIds.includes(v.id));
     }
     return list;
-  }, [statusFilter, categoryFilter, zoneFilter]);
+  }, [statusFilter, categoryFilter, zoneFilter, refreshKey]);
 
-  const recentPayments = useMemo(() => mockPayments.slice(0, 4), []);
+  const recentPayments = useMemo(() => mockPayments.slice(0, 4), [refreshKey]);
+
+  const triggerRefresh = () => {
+    setRefreshKey(k => k + 1);
+  };
 
   const handleExport = () => {
     console.log('[StatsPage] 导出摊主名单', filteredVendors.length, '条');
-    Taro.showToast({ title: `已导出${filteredVendors.length}条摊主数据`, icon: 'success' });
+    setShowExportModal(true);
   };
 
-  const handleSendRenewal = (vendorId: string, vendorName: string) => {
+  const handleSendRenewal = (vendorId: string, vendorName: string, stallId: string, stallNo: string) => {
     console.log('[StatsPage] 发送续租提醒:', vendorId);
     Taro.showModal({
       title: '发送续租提醒',
-      content: `确认向 ${vendorName} 发送续租提醒？`,
+      content: `确认向 ${vendorName}（摊位${stallNo}）发送续租提醒？`,
       success: (res) => {
-        if (res.confirm) Taro.showToast({ title: '提醒已发送', icon: 'success' });
+        if (res.confirm) {
+          setVendorRenewalStatus(vendorId, 'pending', NOW_DATE);
+          const stall = mockStalls.find(s => s.id === stallId);
+          addReminder({
+            vendorId,
+            vendorName,
+            type: 'lease',
+            title: '摊位租期到期提醒',
+            content: `您的摊位${stallNo}租期将于${stall?.leaseEnd || ''}到期，请及时办理续租手续。`,
+            sendDate: NOW_TIME,
+            auditStatus: 'pending',
+            auditRemark: '待确认是否续租'
+          });
+          triggerRefresh();
+          Taro.showToast({ title: '提醒已发送', icon: 'success' });
+        }
       }
     });
   };
 
-  const handleRegisterRenewal = (vendorId: string, vendorName: string) => {
+  const handleRegisterRenewal = (vendorId: string, vendorName: string, stallId: string) => {
     console.log('[StatsPage] 登记续租:', vendorId);
     Taro.showModal({
       title: '登记续租',
-      content: `确认为 ${vendorName} 登记续租？`,
+      content: `确认为 ${vendorName} 登记续租1个月？租期将自动延长。`,
       success: (res) => {
-        if (res.confirm) Taro.showToast({ title: '续租已登记', icon: 'success' });
+        if (res.confirm) {
+          extendStallLease(stallId, 1);
+          setVendorRenewalStatus(vendorId, 'renewed');
+          triggerRefresh();
+          Taro.showToast({ title: '续租已登记', icon: 'success' });
+        }
       }
     });
   };
 
   const handleRegisterChange = (vendorId: string, vendorName: string, stallNo: string) => {
     console.log('[StatsPage] 登记换位:', vendorId);
-    Taro.showModal({
-      title: '登记换位',
-      content: `确认为 ${vendorName}（摊位${stallNo}）登记换位？`,
+    const availableStalls = mockStalls.filter(s => s.status === 'available');
+    if (availableStalls.length === 0) {
+      Taro.showToast({ title: '暂无空摊位可调', icon: 'none' });
+      return;
+    }
+    Taro.showActionSheet({
+      itemList: availableStalls.map(s => `摊位${s.stallNo} · ${s.zone}区 · ¥${s.price}/月`),
       success: (res) => {
-        if (res.confirm) Taro.showToast({ title: '换位已登记', icon: 'success' });
+        const targetStall = availableStalls[res.tapIndex];
+        if (!targetStall) return;
+        Taro.showModal({
+          title: '确认换位',
+          content: `确认将 ${vendorName} 从摊位${stallNo} 调整至摊位${targetStall.stallNo}？`,
+          success: (modalRes) => {
+            if (modalRes.confirm) {
+              const oldStall = mockStalls.find(s => s.vendorId === vendorId);
+              if (!oldStall) {
+                Taro.showToast({ title: '未找到原摊位', icon: 'none' });
+                return;
+              }
+
+              updateStall(targetStall.id, {
+                vendorId: oldStall.vendorId,
+                vendorName: oldStall.vendorName,
+                category: oldStall.category,
+                leaseStart: oldStall.leaseStart,
+                leaseEnd: oldStall.leaseEnd,
+                status: 'rented'
+              });
+
+              updateStall(oldStall.id, {
+                vendorId: undefined,
+                vendorName: undefined,
+                category: undefined,
+                leaseStart: undefined,
+                leaseEnd: undefined,
+                status: 'available'
+              });
+
+              updateVendor(vendorId, {
+                stallId: targetStall.id,
+                stallNo: targetStall.stallNo,
+                renewalStatus: 'changed'
+              });
+
+              triggerRefresh();
+              Taro.showToast({ title: '换位已登记', icon: 'success' });
+            }
+          }
+        });
       }
     });
   };
@@ -325,7 +423,7 @@ const StatsPage: React.FC = () => {
               </View>
             ) : (
               expiringLeases.map(item => (
-                <View key={item.stall.id} className={styles.leaseCard}>
+                <View key={item.stall.id + '_' + refreshKey} className={styles.leaseCard}>
                   <View className={styles.leaseCardHeader}>
                     <View className={styles.leaseCardLeft}>
                       <Text className={styles.leaseCardVendor}>{item.vendor.name}</Text>
@@ -354,13 +452,22 @@ const StatsPage: React.FC = () => {
                     </View>
                   </View>
                   <View className={styles.leaseCardActions}>
-                    <View className={styles.leaseActionBtn} onClick={() => handleSendRenewal(item.vendor.id, item.vendor.name)}>
+                    <View
+                      className={styles.leaseActionBtn}
+                      onClick={() => handleSendRenewal(item.vendor.id, item.vendor.name, item.stall.id, item.stall.stallNo)}
+                    >
                       <Text className={styles.leaseActionText}>发送提醒</Text>
                     </View>
-                    <View className={classnames(styles.leaseActionBtn, styles.leaseActionPrimary)} onClick={() => handleRegisterRenewal(item.vendor.id, item.vendor.name)}>
+                    <View
+                      className={classnames(styles.leaseActionBtn, styles.leaseActionPrimary)}
+                      onClick={() => handleRegisterRenewal(item.vendor.id, item.vendor.name, item.stall.id)}
+                    >
                       <Text className={classnames(styles.leaseActionText, styles.leaseActionTextPrimary)}>登记续租</Text>
                     </View>
-                    <View className={classnames(styles.leaseActionBtn, styles.leaseActionSuccess)} onClick={() => handleRegisterChange(item.vendor.id, item.vendor.name, item.stall.stallNo)}>
+                    <View
+                      className={classnames(styles.leaseActionBtn, styles.leaseActionSuccess)}
+                      onClick={() => handleRegisterChange(item.vendor.id, item.vendor.name, item.stall.stallNo)}
+                    >
                       <Text className={classnames(styles.leaseActionText, styles.leaseActionTextSuccess)}>换位</Text>
                     </View>
                   </View>
@@ -375,6 +482,59 @@ const StatsPage: React.FC = () => {
           </View>
         )}
       </View>
+
+      {showExportModal && (
+        <View className={styles.modalOverlay} onClick={() => setShowExportModal(false)}>
+          <View className={styles.modalContent} onClick={e => e.stopPropagation()}>
+            <View className={styles.modalHeader}>
+              <Text className={styles.modalTitle}>导出摊主名单</Text>
+              <Text className={styles.modalClose} onClick={() => setShowExportModal(false)}>×</Text>
+            </View>
+            <View className={styles.modalSubtitle}>
+              共 {filteredVendors.length} 条记录 · 含状态/品类/区域/摊位号
+            </View>
+            <ScrollView scrollY className={styles.exportScroll}>
+              <View className={styles.exportTable}>
+                <View className={styles.exportHeaderRow}>
+                  <Text className={styles.exportCellHeader}>姓名</Text>
+                  <Text className={styles.exportCellHeader}>电话</Text>
+                  <Text className={styles.exportCellHeader}>摊位</Text>
+                  <Text className={styles.exportCellHeader}>区域</Text>
+                  <Text className={styles.exportCellHeader}>品类</Text>
+                  <Text className={styles.exportCellHeader}>状态</Text>
+                </View>
+                {filteredVendors.map((vendor, idx) => (
+                  <View key={vendor.id} className={classnames(styles.exportRow, idx % 2 === 1 && styles.exportRowAlt)}>
+                    <Text className={styles.exportCell}>{vendor.name}</Text>
+                    <Text className={styles.exportCell}>{vendor.phone}</Text>
+                    <Text className={styles.exportCell}>{getStallNoSafe(vendor)}</Text>
+                    <Text className={styles.exportCell}>{getStallZone(vendor)}区</Text>
+                    <Text className={styles.exportCell}>{vendor.category}</Text>
+                    <Text className={styles.exportCell}>
+                      <StatusTag
+                        text={getStatusText(vendor.auditStatus)}
+                        type={vendor.auditStatus === 'approved' ? 'success' : vendor.auditStatus === 'pending' ? 'warning' : 'error'}
+                        size="sm"
+                      />
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+            <View className={styles.modalFooter}>
+              <View className={styles.modalBtnSecondary} onClick={() => setShowExportModal(false)}>
+                <Text>取消</Text>
+              </View>
+              <View className={styles.modalBtnPrimary} onClick={() => {
+                Taro.showToast({ title: '名单已导出', icon: 'success' });
+                setShowExportModal(false);
+              }}>
+                <Text>确认导出</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 };

@@ -1,6 +1,6 @@
-import { Vendor } from '@/types';
+import { Vendor, Reminder } from '@/types';
 
-export const mockVendors: Vendor[] = [
+let _vendors: Vendor[] = [
   { id: 'v001', name: '张建国', phone: '138****1234', idCard: '110101********1234', category: '熟食小吃', stallId: 's001', stallNo: 'A01', auditStatus: 'approved', licenseStatus: 'approved', licenseExpireDate: '2026-12-31', healthCertExpireDate: '2026-09-15', businessLicense: 'https://picsum.photos/id/1/300/200', idCardFront: 'https://picsum.photos/id/2/300/200', idCardBack: 'https://picsum.photos/id/3/300/200', applyDate: '2026-05-20', renewalStatus: 'none' },
   { id: 'v002', name: '李秀英', phone: '139****5678', idCard: '110101********5678', category: '水果零售', stallId: 's002', stallNo: 'A02', auditStatus: 'approved', licenseStatus: 'approved', licenseExpireDate: '2026-09-15', healthCertExpireDate: '2026-11-20', applyDate: '2026-05-22', renewalStatus: 'none' },
   { id: 'v003', name: '王大伟', phone: '136****9012', idCard: '110101********9012', category: '服饰百货', stallId: 's005', stallNo: 'A05', auditStatus: 'approved', licenseStatus: 'pending', licenseExpireDate: '2026-06-20', healthCertExpireDate: '2026-07-10', applyDate: '2026-06-01', renewalStatus: 'none', lastRemindDate: '2026-06-12' },
@@ -15,26 +15,39 @@ export const mockVendors: Vendor[] = [
   { id: 'v012', name: '林建军', phone: '139****7890', idCard: '110101********7890', category: '农副产品', auditStatus: 'pending', licenseStatus: 'pending', applyDate: '2026-06-13', renewalStatus: 'none' },
 ];
 
+export const mockVendors = _vendors;
+
+let _reminders: Reminder[] = [
+  { id: 'r001', vendorId: 'v003', vendorName: '王大伟', type: 'license', title: '营业执照到期提醒', content: '您的营业执照将于2026-06-20到期，请及时办理续期。', sendDate: '2026-06-12 10:30', auditStatus: 'pending', auditRemark: '材料审核中' },
+  { id: 'r002', vendorId: 'v007', vendorName: '吴丽娟', type: 'lease', title: '摊位租期到期提醒', content: '您的摊位B05租期将于2026-07-10到期，请及时办理续租。', sendDate: '2026-06-13 09:15', auditStatus: 'pending', auditRemark: '待确认是否续租' },
+  { id: 'r003', vendorId: 'v010', vendorName: '黄志明', type: 'license', title: '营业执照到期提醒', content: '您的营业执照即将到期，请重新办理后上传审核。', sendDate: '2026-06-10 14:20', auditStatus: 'rejected', auditRemark: '上传材料不符合要求，请重新提交', auditDate: '2026-06-11 16:00' },
+  { id: 'r004', vendorId: 'v001', vendorName: '张建国', type: 'violation', title: '卫生违规提醒', content: '您的摊位卫生检查评分6分，请及时整改。', sendDate: '2026-06-14 10:05' },
+  { id: 'r005', vendorId: 'v007', vendorName: '吴丽娟', type: 'license', title: '健康证到期提醒', content: '您的健康证将于2026-10-20到期，请提前办理。', sendDate: '2026-06-08 11:00', auditStatus: 'approved', auditRemark: '已提交新证，审核通过', auditDate: '2026-06-09 15:30' },
+  { id: 'r006', vendorId: 'v001', vendorName: '张建国', type: 'payment', title: '费用缴纳提醒', content: '您有一笔待缴费用，请及时缴纳。', sendDate: '2026-05-28 09:00', auditStatus: 'approved', auditRemark: '已完成缴费', auditDate: '2026-05-28 14:20' },
+];
+
+export const mockReminders = _reminders;
+
 export const getVendorById = (id: string): Vendor | undefined => {
-  return mockVendors.find(v => v.id === id);
+  return _vendors.find(v => v.id === id);
 };
 
 export const getVendorsByStatus = (status: string): Vendor[] => {
-  return mockVendors.filter(v => v.auditStatus === status);
+  return _vendors.filter(v => v.auditStatus === status);
 };
 
 export const getVendorsByCategory = (category: string): Vendor[] => {
-  return mockVendors.filter(v => v.category === category);
+  return _vendors.filter(v => v.category === category);
 };
 
 export const getPendingVendors = (): Vendor[] => {
-  return mockVendors.filter(v => v.auditStatus === 'pending' || v.licenseStatus === 'pending');
+  return _vendors.filter(v => v.auditStatus === 'pending' || v.licenseStatus === 'pending');
 };
 
 export const getExpiringLicenses = (days: number = 30, vendorId?: string): Vendor[] => {
   const now = new Date('2026-06-14');
   const future = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
-  return mockVendors.filter(v => {
+  return _vendors.filter(v => {
     if (vendorId && v.id !== vendorId) return false;
     if (!v.licenseExpireDate) return false;
     const expireDate = new Date(v.licenseExpireDate);
@@ -52,7 +65,7 @@ export const getExpiringLeases = (days: number = 15): { vendor: Vendor; stall: i
     const endDate = new Date(stall.leaseEnd);
     const diff = Math.ceil((endDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
     if (diff >= 0 && diff <= days) {
-      const vendor = mockVendors.find(v => v.id === stall.vendorId);
+      const vendor = _vendors.find(v => v.id === stall.vendorId);
       if (vendor) result.push({ vendor, stall, daysLeft: diff });
     }
   }
@@ -60,5 +73,40 @@ export const getExpiringLeases = (days: number = 15): { vendor: Vendor; stall: i
 };
 
 export const getAllCategories = (): string[] => {
-  return [...new Set(mockVendors.map(v => v.category))];
+  return [...new Set(_vendors.map(v => v.category))];
+};
+
+export const updateVendor = (id: string, updates: Partial<Vendor>): boolean => {
+  const idx = _vendors.findIndex(v => v.id === id);
+  if (idx === -1) return false;
+  const target = _vendors[idx];
+  if (!target) return false;
+  Object.assign(target, updates);
+  return true;
+};
+
+export const setVendorRenewalStatus = (vendorId: string, status: 'none' | 'pending' | 'renewed' | 'changed', remindDate?: string): boolean => {
+  const vendor = _vendors.find(v => v.id === vendorId);
+  if (!vendor) return false;
+  vendor.renewalStatus = status;
+  if (remindDate) vendor.lastRemindDate = remindDate;
+  return true;
+};
+
+export const getRemindersByVendor = (vendorId: string): Reminder[] => {
+  return _reminders.filter(r => r.vendorId === vendorId).sort((a, b) => new Date(b.sendDate).getTime() - new Date(a.sendDate).getTime());
+};
+
+export const addReminder = (reminder: Omit<Reminder, 'id'>): Reminder => {
+  const newId = 'r' + String(_reminders.length + 1).padStart(3, '0');
+  const newReminder: Reminder = { ...reminder, id: newId };
+  _reminders.unshift(newReminder);
+  return newReminder;
+};
+
+export const updateReminder = (id: string, updates: Partial<Reminder>): boolean => {
+  const reminder = _reminders.find(r => r.id === id);
+  if (!reminder) return false;
+  Object.assign(reminder, updates);
+  return true;
 };

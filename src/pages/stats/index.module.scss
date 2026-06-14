@@ -508,3 +508,137 @@
   font-size: $font-size-md;
   color: $color-text-tertiary;
 }
+
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: $page-padding;
+}
+
+.modalContent {
+  width: 100%;
+  max-width: 650rpx;
+  max-height: 80vh;
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-lg;
+  border-bottom: 1rpx solid $color-divider;
+}
+
+.modalTitle {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.modalClose {
+  font-size: 48rpx;
+  color: $color-text-tertiary;
+  line-height: 1;
+}
+
+.modalSubtitle {
+  padding: $spacing-md $spacing-lg;
+  padding-bottom: 0;
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+}
+
+.exportScroll {
+  flex: 1;
+  max-height: 60vh;
+  margin: $spacing-md 0;
+}
+
+.exportTable {
+  padding: 0 $spacing-lg;
+}
+
+.exportHeaderRow {
+  display: flex;
+  padding: $spacing-sm 0;
+  border-bottom: 2rpx solid $color-border;
+  background: $color-bg-page;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.exportCellHeader {
+  flex: 1;
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+  font-weight: $font-weight-semibold;
+  text-align: center;
+}
+
+.exportRow {
+  display: flex;
+  padding: $spacing-sm 0;
+  border-bottom: 1rpx solid $color-divider;
+
+  &.exportRowAlt {
+    background: rgba(0, 0, 0, 0.02);
+  }
+}
+
+.exportCell {
+  flex: 1;
+  font-size: $font-size-xs;
+  color: $color-text-primary;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalFooter {
+  display: flex;
+  gap: $spacing-md;
+  padding: $spacing-lg;
+  border-top: 1rpx solid $color-divider;
+}
+
+.modalBtnSecondary {
+  flex: 1;
+  height: $button-height-lg;
+  background: $color-bg-card;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-button;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+  font-weight: $font-weight-semibold;
+}
+
+.modalBtnPrimary {
+  flex: 1;
+  height: $button-height-lg;
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+  border-radius: $radius-button;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-md;
+  color: $color-text-white;
+  font-weight: $font-weight-semibold;
+}

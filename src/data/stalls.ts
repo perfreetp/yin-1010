@@ -1,6 +1,6 @@
 import { Stall } from '@/types';
 
-export const mockStalls: Stall[] = [
+let _stalls: Stall[] = [
   { id: 's001', stallNo: 'A01', zone: 'A', row: 1, col: 1, width: 120, height: 100, status: 'rented', price: 120, vendorId: 'v001', vendorName: '张建国', category: '熟食小吃', leaseStart: '2026-06-01', leaseEnd: '2026-06-30' },
   { id: 's002', stallNo: 'A02', zone: 'A', row: 1, col: 2, width: 120, height: 100, status: 'rented', price: 120, vendorId: 'v002', vendorName: '李秀英', category: '水果零售', leaseStart: '2026-06-01', leaseEnd: '2026-06-30' },
   { id: 's003', stallNo: 'A03', zone: 'A', row: 1, col: 3, width: 120, height: 100, status: 'available', price: 120 },
@@ -21,18 +21,68 @@ export const mockStalls: Stall[] = [
   { id: 's018', stallNo: 'C06', zone: 'C', row: 3, col: 6, width: 100, height: 100, status: 'rented', price: 100, vendorId: 'v010', vendorName: '黄志明', category: '玩具饰品', leaseStart: '2026-06-01', leaseEnd: '2026-06-30' },
 ];
 
+export const mockStalls = _stalls;
+
 export const getStallById = (id: string): Stall | undefined => {
-  return mockStalls.find(s => s.id === id);
+  return _stalls.find(s => s.id === id);
 };
 
 export const getStallsByZone = (zone: string): Stall[] => {
-  return mockStalls.filter(s => s.zone === zone);
+  return _stalls.filter(s => s.zone === zone);
 };
 
 export const getStallsByStatus = (status: string): Stall[] => {
-  return mockStalls.filter(s => s.status === status);
+  return _stalls.filter(s => s.status === status);
 };
 
 export const getStallsByVendor = (vendorId: string): Stall[] => {
-  return mockStalls.filter(s => s.vendorId === vendorId);
+  return _stalls.filter(s => s.vendorId === vendorId);
+};
+
+export const updateStall = (id: string, updates: Partial<Stall>): boolean => {
+  const stall = _stalls.find(s => s.id === id);
+  if (!stall) return false;
+  Object.assign(stall, updates);
+  return true;
+};
+
+export const extendStallLease = (stallId: string, months: number = 1): boolean => {
+  const stall = _stalls.find(s => s.id === stallId);
+  if (!stall || !stall.leaseEnd) return false;
+  const endDate = new Date(stall.leaseEnd);
+  endDate.setMonth(endDate.getMonth() + months);
+  const year = endDate.getFullYear();
+  const month = String(endDate.getMonth() + 1).padStart(2, '0');
+  const day = String(endDate.getDate()).padStart(2, '0');
+  stall.leaseEnd = `${year}-${month}-${day}`;
+  return true;
+};
+
+export const changeStallVendor = (oldStallId: string, newStallId: string): boolean => {
+  const oldStall = _stalls.find(s => s.id === oldStallId);
+  const newStall = _stalls.find(s => s.id === newStallId);
+  if (!oldStall || !newStall || !oldStall.vendorId) return false;
+  if (newStall.status !== 'available') return false;
+
+  const vendorId = oldStall.vendorId;
+  const vendorName = oldStall.vendorName;
+  const category = oldStall.category;
+  const leaseStart = oldStall.leaseStart;
+  const leaseEnd = oldStall.leaseEnd;
+
+  newStall.vendorId = vendorId;
+  newStall.vendorName = vendorName;
+  newStall.category = category;
+  newStall.leaseStart = leaseStart;
+  newStall.leaseEnd = leaseEnd;
+  newStall.status = 'rented';
+
+  oldStall.vendorId = undefined;
+  oldStall.vendorName = undefined;
+  oldStall.category = undefined;
+  oldStall.leaseStart = undefined;
+  oldStall.leaseEnd = undefined;
+  oldStall.status = 'available';
+
+  return true;
 };

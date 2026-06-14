@@ -106,3 +106,18 @@ export interface StatSummary {
   expiringLicenses: number;
   pendingInspections: number;
 }
+
+export type ReminderType = 'license' | 'lease' | 'violation' | 'payment';
+
+export interface Reminder {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  type: ReminderType;
+  title: string;
+  content: string;
+  sendDate: string;
+  auditStatus?: 'pending' | 'approved' | 'rejected';
+  auditRemark?: string;
+  auditDate?: string;
+}

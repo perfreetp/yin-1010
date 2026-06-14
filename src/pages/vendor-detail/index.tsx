@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text } from '@tarojs/components';
 import Taro, { useRouter } from '@tarojs/taro';
 import classnames from 'classnames';
@@ -8,6 +8,7 @@ import { getVendorById } from '@/data/vendors';
 import { getStallsByVendor } from '@/data/stalls';
 import { getPaymentsByVendor } from '@/data/payments';
 import { getInspectionsByVendor } from '@/data/inspections';
+import { Payment, Inspection } from '@/types';
 import styles from './index.module.scss';
 
 const NOW = new Date('2026-06-14');
@@ -18,6 +19,20 @@ const RENEWAL_STATUS_MAP: Record<string, { text: string; type: 'success' | 'pend
   pending: { text: '续期中', type: 'pending' },
   renewed: { text: '已续期', type: 'success' },
   changed: { text: '已变更', type: 'warning' },
+};
+
+const INSPECTION_TYPE_TEXT: Record<string, string> = {
+  absent: '缺席',
+  occupying: '占道',
+  unhygienic: '卫生',
+  other: '其他'
+};
+
+const INSPECTION_TYPE_COLOR: Record<string, string> = {
+  absent: 'error',
+  occupying: 'warning',
+  unhygienic: 'info',
+  other: 'default'
 };
 
 const getLicenseStatus = (expireDate?: string) => {
@@ -32,11 +47,13 @@ const VendorDetailPage: React.FC = () => {
   const router = useRouter();
   const { currentUser } = useUser();
   const vendorId = router.params.id || (currentUser.role === 'vendor' ? 'v001' : '');
+  const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
+  const [expandedInspection, setExpandedInspection] = useState<string | null>(null);
 
   const vendor = useMemo(() => getVendorById(vendorId), [vendorId]);
   const stalls = useMemo(() => vendor ? getStallsByVendor(vendor.id) : [], [vendor]);
-  const payments = useMemo(() => vendor ? getPaymentsByVendor(vendor.id).slice(0, 5) : [], [vendor]);
-  const inspections = useMemo(() => vendor ? getInspectionsByVendor(vendor.id).slice(0, 3) : [], [vendor]);
+  const payments = useMemo(() => vendor ? getPaymentsByVendor(vendor.id).slice(0, 10) : [], [vendor]);
+  const inspections = useMemo(() => vendor ? getInspectionsByVendor(vendor.id).slice(0, 10) : [], [vendor]);
 
   if (!vendor) {
     return (
@@ -96,8 +113,26 @@ const VendorDetailPage: React.FC = () => {
     });
   };
 
+  const togglePayment = (id: string) => {
+    setExpandedPayment(expandedPayment === id ? null : id);
+  };
+
+  const toggleInspection = (id: string) => {
+    setExpandedInspection(expandedInspection === id ? null : id);
+  };
+
+  const getPaymentStatusType = (status: string) => {
+    return status === 'paid' ? 'success' : status === 'unpaid' ? 'warning' : status === 'refunding' ? 'info' : 'default';
+  };
+
+  const getPaymentStatusText = (status: string) => {
+    return status === 'paid' ? '已支付' : status === 'unpaid' ? '待支付' : status === 'refunding' ? '退款中' : '已退款';
+  };
+
   const licenseStatus = getLicenseStatus(vendor.licenseExpireDate);
   const healthCertStatus = getLicenseStatus(vendor.healthCertExpireDate);
+  const totalPaid = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0);
+  const totalUnpaid = payments.filter(p => p.status === 'unpaid').reduce((s, p) => s + p.amount, 0);
 
   return (
     <View className={styles.page}>
@@ -139,8 +174,12 @@ const VendorDetailPage: React.FC = () => {
             </View>
             <View className={styles.infoItem}>
               <Text className={styles.infoLabel}>累计缴费</Text>
-              <Text className={styles.infoValue}>
-                ¥{payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0).toLocaleString()}
+              <Text className={styles.infoValue}>¥{totalPaid.toLocaleString()}</Text>
+            </View>
+            <View className={styles.infoItem}>
+              <Text className={styles.infoLabel}>待缴费用</Text>
+              <Text className={classnames(styles.infoValue, totalUnpaid > 0 && styles.textError)}>
+                ¥{totalUnpaid.toLocaleString()}
               </Text>
             </View>
             {vendor.renewalStatus && vendor.renewalStatus !== 'none' && (
@@ -183,8 +222,8 @@ const VendorDetailPage: React.FC = () => {
                   <Text className={styles.stallNo}>
                     摊位{stall.stallNo} · {stall.zone}区
                     <StatusTag
-                      text={stall.status === 'rented' ? '经营中' : stall.status === 'maintenance' ? '维修中' : stall.status === 'vacant' ? '空闲' : '占用'}
-                      type={stall.status === 'rented' ? 'success' : stall.status === 'maintenance' ? 'warning' : stall.status === 'vacant' ? 'info' : 'error'}
+                      text={stall.status === 'rented' ? '经营中' : stall.status === 'maintenance' ? '维修中' : stall.status === 'available' ? '空闲' : '占用'}
+                      type={stall.status === 'rented' ? 'success' : stall.status === 'maintenance' ? 'warning' : stall.status === 'available' ? 'info' : 'error'}
                       size="sm"
                       style={{ marginLeft: '16rpx' }}
                     />
@@ -260,58 +299,175 @@ const VendorDetailPage: React.FC = () => {
         <View className={styles.card}>
           <View className={styles.sectionTitle}>
             <View className={styles.titleBar} />
-            <Text>最近缴费记录</Text>
+            <Text>缴费记录</Text>
+            <Text className={styles.sectionCount}>共{payments.length}条</Text>
           </View>
-          <View className={styles.paymentHistory}>
-            {payments.length === 0 ? (
-              <View style={{ padding: '32rpx', textAlign: 'center' }}>
-                <Text style={{ fontSize: '26rpx', color: '#86909c' }}>暂无缴费记录</Text>
-              </View>
-            ) : (
-              payments.map(payment => (
-                <View key={payment.id} className={styles.paymentRow}>
-                  <View className={styles.paymentInfoLeft}>
-                    <Text className={styles.paymentTitle}>{payment.period}</Text>
-                    <Text className={styles.paymentDate}>{payment.payDate || payment.createDate}</Text>
+          {payments.length === 0 ? (
+            <View style={{ padding: '32rpx', textAlign: 'center' }}>
+              <Text style={{ fontSize: '26rpx', color: '#86909c' }}>暂无缴费记录</Text>
+            </View>
+          ) : (
+            <View className={styles.recordList}>
+              {payments.map(payment => (
+                <View key={payment.id} className={styles.recordItem}>
+                  <View className={styles.recordHeader} onClick={() => togglePayment(payment.id)}>
+                    <View className={styles.recordMain}>
+                      <Text className={styles.recordTitle}>{payment.period} 摊位费</Text>
+                      <Text className={styles.recordSub}>订单号：{payment.id}</Text>
+                    </View>
+                    <View className={styles.recordRight}>
+                      <Text
+                        className={classnames(styles.recordAmount, {
+                          [styles.paymentPaid]: payment.status === 'paid',
+                          [styles.paymentUnpaid]: payment.status === 'unpaid',
+                        })}
+                      >
+                        {payment.status === 'refunded' ? '-' : ''}¥{payment.amount.toLocaleString()}
+                      </Text>
+                      <View style={{ marginTop: '6rpx' }}>
+                        <StatusTag text={getPaymentStatusText(payment.status)} type={getPaymentStatusType(payment.status)} size="sm" />
+                      </View>
+                    </View>
+                    <Text className={styles.recordArrow}>
+                      {expandedPayment === payment.id ? '▲' : '▼'}
+                    </Text>
                   </View>
-                  <Text
-                    className={classnames(styles.paymentAmount, {
-                      [styles.paymentPaid]: payment.status === 'paid',
-                      [styles.paymentUnpaid]: payment.status === 'unpaid',
-                    })}
-                  >
-                    {payment.status === 'refunded' ? '-' : ''}¥{payment.amount.toLocaleString()}
-                  </Text>
+                  {expandedPayment === payment.id && (
+                    <View className={styles.recordDetail}>
+                      <View className={styles.detailRow}>
+                        <Text className={styles.detailLabel}>摊位</Text>
+                        <Text className={styles.detailValue}>{payment.stallNo}</Text>
+                      </View>
+                      <View className={styles.detailRow}>
+                        <Text className={styles.detailLabel}>缴费周期</Text>
+                        <Text className={styles.detailValue}>{payment.period}</Text>
+                      </View>
+                      <View className={styles.detailRow}>
+                        <Text className={styles.detailLabel}>创建时间</Text>
+                        <Text className={styles.detailValue}>{payment.createDate}</Text>
+                      </View>
+                      {payment.payDate && (
+                        <View className={styles.detailRow}>
+                          <Text className={styles.detailLabel}>支付时间</Text>
+                          <Text className={styles.detailValue}>{payment.payDate}</Text>
+                        </View>
+                      )}
+                      {payment.refundDate && (
+                        <View className={styles.detailRow}>
+                          <Text className={styles.detailLabel}>退款时间</Text>
+                          <Text className={styles.detailValue}>{payment.refundDate}</Text>
+                        </View>
+                      )}
+                      {payment.refundReason && (
+                        <View className={styles.detailRow}>
+                          <Text className={styles.detailLabel}>退款原因</Text>
+                          <Text className={styles.detailValue}>{payment.refundReason}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
-              ))
-            )}
-          </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <View className={styles.card}>
           <View className={styles.sectionTitle}>
             <View className={styles.titleBar} />
             <Text>巡场记录</Text>
+            <Text className={styles.sectionCount}>共{inspections.length}条</Text>
           </View>
           {inspections.length === 0 ? (
             <View style={{ padding: '32rpx', textAlign: 'center' }}>
               <Text style={{ fontSize: '26rpx', color: '#86909c' }}>暂无巡场记录</Text>
             </View>
           ) : (
-            inspections.map(record => (
-              <View key={record.id} className={styles.inspectionItem}>
-                <View className={styles.inspectionIcon}>
-                  <Text>{record.type === 'absent' ? '❌' : record.type === 'occupying' ? '🚧' : record.type === 'unhygienic' ? '🧹' : '📋'}</Text>
+            <View className={styles.recordList}>
+              {inspections.map(record => (
+                <View key={record.id} className={styles.recordItem}>
+                  <View className={styles.recordHeader} onClick={() => toggleInspection(record.id)}>
+                    <View className={styles.recordMain}>
+                      <View className={styles.inspectionTypeRow}>
+                        <StatusTag
+                          text={INSPECTION_TYPE_TEXT[record.type] || '其他'}
+                          type={INSPECTION_TYPE_COLOR[record.type] as any || 'default'}
+                          size="sm"
+                        />
+                        <Text className={styles.recordTitle} style={{ marginLeft: '12rpx' }}>
+                          {record.description.slice(0, 20)}{record.description.length > 20 ? '...' : ''}
+                        </Text>
+                      </View>
+                      <Text className={styles.recordSub}>
+                        {record.date} · {record.inspectorName}
+                      </Text>
+                    </View>
+                    <View className={styles.recordRight}>
+                      {record.hygieneScore !== undefined && (
+                        <Text className={classnames(
+                          styles.scoreText,
+                          record.hygieneScore >= 9 ? styles.scoreGood : record.hygieneScore >= 7 ? styles.scoreNormal : styles.scoreBad
+                        )}>
+                          {record.hygieneScore}/10
+                        </Text>
+                      )}
+                    </View>
+                    <Text className={styles.recordArrow}>
+                      {expandedInspection === record.id ? '▲' : '▼'}
+                    </Text>
+                  </View>
+                  {expandedInspection === record.id && (
+                    <View className={styles.recordDetail}>
+                      <View className={styles.detailRow}>
+                        <Text className={styles.detailLabel}>违规类型</Text>
+                        <Text className={styles.detailValue}>{INSPECTION_TYPE_TEXT[record.type] || '其他'}</Text>
+                      </View>
+                      <View className={styles.detailRow}>
+                        <Text className={styles.detailLabel}>摊位</Text>
+                        <Text className={styles.detailValue}>{record.stallNo}</Text>
+                      </View>
+                      <View className={styles.detailRow}>
+                        <Text className={styles.detailLabel}>巡查员</Text>
+                        <Text className={styles.detailValue}>{record.inspectorName}</Text>
+                      </View>
+                      <View className={styles.detailRow}>
+                        <Text className={styles.detailLabel}>巡查时间</Text>
+                        <Text className={styles.detailValue}>{record.date}</Text>
+                      </View>
+                      <View className={classnames(styles.detailRow, styles.detailRowBlock)}>
+                        <Text className={styles.detailLabel}>详细描述</Text>
+                        <Text className={classnames(styles.detailValue, styles.detailValueBlock)}>
+                          {record.description}
+                        </Text>
+                      </View>
+                      {record.hygieneScore !== undefined && (
+                        <View className={styles.detailRow}>
+                          <Text className={styles.detailLabel}>卫生评分</Text>
+                          <Text className={classnames(
+                            styles.detailValue,
+                            record.hygieneScore >= 9 ? styles.scoreGood : record.hygieneScore >= 7 ? styles.scoreNormal : styles.scoreBad
+                          )}>
+                            {record.hygieneScore}/10 分
+                          </Text>
+                        </View>
+                      )}
+                      {record.photos && record.photos.length > 0 && (
+                        <View className={classnames(styles.detailRow, styles.detailRowBlock)}>
+                          <Text className={styles.detailLabel}>现场照片</Text>
+                          <View className={styles.photoList}>
+                            {record.photos.map((photo, idx) => (
+                              <View key={idx} className={styles.photoItem}>
+                                <Text className={styles.photoPlaceholder}>📷</Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
-                <View className={styles.inspectionContent}>
-                  <Text className={styles.inspectionDesc}>{record.description}</Text>
-                  <Text className={styles.inspectionDate}>
-                    {record.date} · {record.inspectorName}
-                    {record.hygieneScore ? ` · 评分${record.hygieneScore}/10` : ''}
-                  </Text>
-                </View>
-              </View>
-            ))
+              ))}
+            </View>
           )}
         </View>
       </View>
