@@ -4,26 +4,65 @@ import Taro from '@tarojs/taro';
 import classnames from 'classnames';
 import StatusTag from '@/components/StatusTag';
 import { useUser } from '@/store/user-context';
-import { mockVendors, getExpiringLicenses, getPendingVendors } from '@/data/vendors';
+import {
+  mockVendors,
+  getExpiringLicenses,
+  getPendingVendors,
+  updateVendor,
+  addReminder
+} from '@/data/vendors';
 import { Vendor } from '@/types';
 import styles from './index.module.scss';
 
 type FilterType = 'all' | 'pending' | 'expiring' | 'approved';
 
+const NOW_DATE = '2026-06-14';
+const NOW_TIME = '2026-06-14 10:30';
+
 const LicensePage: React.FC = () => {
   const { currentUser } = useUser();
   const [filter, setFilter] = useState<FilterType>('all');
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const filteredVendors = useMemo(() => {
     if (filter === 'pending') return getPendingVendors();
     if (filter === 'expiring') return getExpiringLicenses(30);
     if (filter === 'approved') return mockVendors.filter(v => v.licenseStatus === 'approved');
     return mockVendors;
-  }, [filter]);
+  }, [filter, refreshKey]);
+
+  const triggerRefresh = () => {
+    setRefreshKey(k => k + 1);
+  };
 
   const handleApprove = (vendor: Vendor) => {
     console.log('[LicensePage] 审核通过:', vendor.id);
-    Taro.showToast({ title: '已通过审核', icon: 'success' });
+    Taro.showModal({
+      title: '审核通过',
+      content: `确认通过 ${vendor.name} 的证照审核？`,
+      success: (res) => {
+        if (res.confirm) {
+          updateVendor(vendor.id, {
+            licenseStatus: 'approved',
+            auditStatus: 'approved'
+          });
+          addReminder({
+            vendorId: vendor.id,
+            vendorName: vendor.name,
+            type: 'license',
+            title: '证照审核通过',
+            content: `您的证照审核已通过，可正常经营。`,
+            sendDate: NOW_TIME,
+            auditStatus: 'approved',
+            auditDate: NOW_TIME,
+            auditRemark: '证照审核通过',
+            operator: currentUser.name
+          });
+          triggerRefresh();
+          Taro.showToast({ title: '已通过审核', icon: 'success' });
+        }
+      }
+    });
   };
 
   const handleReject = (vendor: Vendor) => {
@@ -33,7 +72,26 @@ const LicensePage: React.FC = () => {
       editable: true,
       placeholderText: '请输入拒绝原因',
       success: (res) => {
-        if (res.confirm) {
+        if (res.confirm && res.content) {
+          const reason = res.content || '材料不符合要求';
+          updateVendor(vendor.id, {
+            licenseStatus: 'rejected',
+            auditStatus: 'rejected',
+            auditRemark: reason
+          });
+          addReminder({
+            vendorId: vendor.id,
+            vendorName: vendor.name,
+            type: 'license',
+            title: '证照审核未通过',
+            content: `您的证照审核未通过。拒绝原因：${reason}`,
+            sendDate: NOW_TIME,
+            auditStatus: 'rejected',
+            auditDate: NOW_TIME,
+            auditRemark: reason,
+            operator: currentUser.name
+          });
+          triggerRefresh();
           Taro.showToast({ title: '已拒绝', icon: 'none' });
         }
       }
@@ -42,17 +100,54 @@ const LicensePage: React.FC = () => {
 
   const handleRemind = (vendor: Vendor) => {
     console.log('[LicensePage] 提醒到期:', vendor.id);
-    Taro.showToast({ title: '已发送提醒', icon: 'success' });
+    Taro.showModal({
+      title: '发送提醒',
+      content: `确认向 ${vendor.name} 发送证照到期提醒？`,
+      success: (res) => {
+        if (res.confirm) {
+          const isLicense = vendor.licenseExpireDate && new Date(vendor.licenseExpireDate) >= new Date(NOW_DATE) && new Date(vendor.licenseExpireDate).getTime() - new Date(NOW_DATE).getTime() <= 30 * 24 * 3600 * 1000;
+          const isHealthCert = vendor.healthCertExpireDate && new Date(vendor.healthCertExpireDate) >= new Date(NOW_DATE) && new Date(vendor.healthCertExpireDate).getTime() - new Date(NOW_DATE).getTime() <= 30 * 24 * 3600 * 1000;
+
+          let title = '';
+          let content = '';
+          if (isLicense && isHealthCert) {
+            title = '证照到期提醒';
+            content = `您的营业执照（${vendor.licenseExpireDate}）和健康证（${vendor.healthCertExpireDate}）即将到期，请及时办理续期手续。`;
+          } else if (isLicense) {
+            title = '营业执照到期提醒';
+            content = `您的营业执照将于${vendor.licenseExpireDate}到期，请及时办理续期手续。`;
+          } else {
+            title = '健康证到期提醒';
+            content = `您的健康证将于${vendor.healthCertExpireDate}到期，请及时办理续期手续。`;
+          }
+
+          updateVendor(vendor.id, { lastRemindDate: NOW_DATE });
+          addReminder({
+            vendorId: vendor.id,
+            vendorName: vendor.name,
+            type: 'license',
+            title,
+            content,
+            sendDate: NOW_TIME,
+            auditStatus: 'pending',
+            auditRemark: '请尽快办理续期手续',
+            operator: currentUser.name
+          });
+          triggerRefresh();
+          Taro.showToast({ title: '已发送提醒', icon: 'success' });
+        }
+      }
+    });
   };
 
   const handleView = (vendor: Vendor) => {
     console.log('[LicensePage] 查看证照:', vendor.id);
-    Taro.showToast({ title: '证照预览开发中', icon: 'none' });
+    Taro.navigateTo({ url: '/pages/vendor-detail/index?id=' + vendor.id });
   };
 
   const checkExpireStatus = (date?: string) => {
     if (!date) return 'normal';
-    const now = new Date('2026-06-14');
+    const now = new Date(NOW_DATE);
     const expire = new Date(date);
     const diff = (expire.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
     if (diff < 0) return 'expired';
@@ -92,7 +187,7 @@ const LicensePage: React.FC = () => {
             {filteredVendors.map(vendor => {
               const expireStatus = checkExpireStatus(vendor.licenseExpireDate);
               return (
-                <View key={vendor.id} className={styles.vendorCard}>
+                <View key={vendor.id + '_' + refreshKey} className={styles.vendorCard}>
                   <View className={styles.vendorHeader}>
                     <View className={styles.vendorInfo}>
                       <View className={styles.vendorAvatar}>👤</View>
@@ -136,6 +231,18 @@ const LicensePage: React.FC = () => {
                         {vendor.auditStatus === 'approved' ? '已通过' : vendor.auditStatus === 'pending' ? '审核中' : '已拒绝'}
                       </Text>
                     </View>
+                    {vendor.healthCertExpireDate && (
+                      <View className={styles.infoItem}>
+                        <Text className={styles.infoLabel}>健康证有效期</Text>
+                        <Text className={styles.infoValue}>{vendor.healthCertExpireDate}</Text>
+                      </View>
+                    )}
+                    {vendor.lastRemindDate && (
+                      <View className={styles.infoItem}>
+                        <Text className={styles.infoLabel}>上次提醒</Text>
+                        <Text className={styles.infoValue}>{vendor.lastRemindDate}</Text>
+                      </View>
+                    )}
                   </View>
                   {vendor.auditRemark && (
                     <View style={{ marginTop: '24rpx', padding: '16rpx', background: '#fff4e8', borderRadius: '12rpx' }}>
@@ -155,7 +262,7 @@ const LicensePage: React.FC = () => {
                       </View>
                     )}
                     <View className={classnames(styles.actionBtn, styles.btnView)} onClick={() => handleView(vendor)}>
-                      查看证照
+                      查看详情
                     </View>
                   </View>
                 </View>

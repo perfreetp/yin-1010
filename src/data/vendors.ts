@@ -110,3 +110,119 @@ export const updateReminder = (id: string, updates: Partial<Reminder>): boolean 
   Object.assign(reminder, updates);
   return true;
 };
+
+export const getTimelineByVendor = (vendorId: string): import('@/types').TimelineEvent[] => {
+  const events: import('@/types').TimelineEvent[] = [];
+  const { getPaymentsByVendor } = require('@/data/payments');
+  const { getInspectionsByVendor } = require('@/data/inspections');
+  const { getStallsByVendor } = require('@/data/stalls');
+
+  for (const r of _reminders.filter(r => r.vendorId === vendorId)) {
+    const eventTypeMap: Record<string, import('@/types').TimelineEventType> = {
+      license: 'license',
+      lease: 'lease',
+      violation: 'violation',
+      payment: 'payment'
+    };
+    let statusText = '未处理';
+    let statusType: 'success' | 'warning' | 'error' | 'info' = 'info';
+    if (r.auditStatus === 'approved') {
+      statusText = '已办结';
+      statusType = 'success';
+    } else if (r.auditStatus === 'rejected') {
+      statusText = '已拒绝';
+      statusType = 'error';
+    } else if (r.auditStatus === 'pending') {
+      statusText = '处理中';
+      statusType = 'warning';
+    }
+    events.push({
+      id: r.id,
+      type: eventTypeMap[r.type] || 'license',
+      title: r.title,
+      description: r.content + (r.auditRemark ? `\n审核备注：${r.auditRemark}` : ''),
+      date: r.sendDate,
+      operator: r.operator || '管理员',
+      status: statusText,
+      statusType
+    });
+  }
+
+  for (const p of getPaymentsByVendor(vendorId)) {
+    let statusText = '待支付';
+    let statusType: 'success' | 'warning' | 'error' | 'info' = 'warning';
+    if (p.status === 'paid') {
+      statusText = '已支付';
+      statusType = 'success';
+    } else if (p.status === 'refunded') {
+      statusText = '已退款';
+      statusType = 'info';
+    } else if (p.status === 'refunding') {
+      statusText = '退款中';
+      statusType = 'warning';
+    }
+    events.push({
+      id: 'pay_' + p.id,
+      type: 'payment',
+      title: `${p.period} 摊位费`,
+      description: `摊位${p.stallNo} · ${p.period}`,
+      date: p.payDate || p.createDate,
+      operator: '系统',
+      status: statusText,
+      statusType,
+      amount: p.amount
+    });
+  }
+
+  for (const insp of getInspectionsByVendor(vendorId)) {
+    const typeText = insp.type === 'absent' ? '缺席' : insp.type === 'occupying' ? '占道' : insp.type === 'unhygienic' ? '卫生' : '其他';
+    let statusType: 'success' | 'warning' | 'error' | 'info' = 'warning';
+    if (insp.type === 'unhygienic' && insp.hygieneScore && insp.hygieneScore >= 8) {
+      statusType = 'success';
+    } else if (insp.type === 'absent' || insp.type === 'occupying') {
+      statusType = 'error';
+    }
+    events.push({
+      id: 'insp_' + insp.id,
+      type: 'violation',
+      title: `巡场检查 - ${typeText}`,
+      description: insp.description + (insp.hygieneScore !== undefined ? `\n卫生评分：${insp.hygieneScore}/10` : ''),
+      date: insp.date,
+      operator: insp.inspectorName,
+      status: insp.hygieneScore !== undefined ? `评分${insp.hygieneScore}/10` : '已登记',
+      statusType
+    });
+  }
+
+  const vendor = getVendorById(vendorId);
+  if (vendor) {
+    events.push({
+      id: 'audit_' + vendor.id,
+      type: 'audit',
+      title: '入驻申请审核',
+      description: `经营品类：${vendor.category}` + (vendor.auditRemark ? `\n审核备注：${vendor.auditRemark}` : ''),
+      date: vendor.applyDate,
+      operator: '管理员',
+      status: vendor.auditStatus === 'approved' ? '已通过' : vendor.auditStatus === 'pending' ? '审核中' : '已拒绝',
+      statusType: vendor.auditStatus === 'approved' ? 'success' : vendor.auditStatus === 'pending' ? 'warning' : 'error'
+    });
+
+    if (vendor.renewalStatus === 'changed') {
+      const stalls = getStallsByVendor(vendorId);
+      if (stalls.length > 0) {
+        events.push({
+          id: 'change_' + vendor.id,
+          type: 'position_change',
+          title: '摊位调整',
+          description: `已调整至摊位${stalls[0].stallNo}（${stalls[0].zone}区）`,
+          date: vendor.lastRemindDate || NOW_DATE,
+          operator: '管理员',
+          status: '已完成',
+          statusType: 'success'
+        });
+      }
+    }
+  }
+
+  return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+};

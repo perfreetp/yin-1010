@@ -4,11 +4,11 @@ import Taro, { useRouter } from '@tarojs/taro';
 import classnames from 'classnames';
 import StatusTag from '@/components/StatusTag';
 import { useUser } from '@/store/user-context';
-import { getVendorById } from '@/data/vendors';
+import { getVendorById, getTimelineByVendor } from '@/data/vendors';
 import { getStallsByVendor } from '@/data/stalls';
 import { getPaymentsByVendor } from '@/data/payments';
 import { getInspectionsByVendor } from '@/data/inspections';
-import { Payment, Inspection } from '@/types';
+import { Payment, Inspection, TimelineEvent } from '@/types';
 import styles from './index.module.scss';
 
 const NOW = new Date('2026-06-14');
@@ -19,6 +19,24 @@ const RENEWAL_STATUS_MAP: Record<string, { text: string; type: 'success' | 'pend
   pending: { text: '续期中', type: 'pending' },
   renewed: { text: '已续期', type: 'success' },
   changed: { text: '已变更', type: 'warning' },
+};
+
+const TIMELINE_TYPE_ICON: Record<string, string> = {
+  license: '📄',
+  lease: '🏠',
+  violation: '⚠️',
+  payment: '💰',
+  position_change: '🔄',
+  audit: '✅'
+};
+
+const TIMELINE_TYPE_TEXT: Record<string, string> = {
+  license: '证照',
+  lease: '租期',
+  violation: '违规',
+  payment: '缴费',
+  position_change: '换位',
+  audit: '审核'
 };
 
 const INSPECTION_TYPE_TEXT: Record<string, string> = {
@@ -49,11 +67,13 @@ const VendorDetailPage: React.FC = () => {
   const vendorId = router.params.id || (currentUser.role === 'vendor' ? 'v001' : '');
   const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
   const [expandedInspection, setExpandedInspection] = useState<string | null>(null);
+  const [expandedTimeline, setExpandedTimeline] = useState<string | null>(null);
 
   const vendor = useMemo(() => getVendorById(vendorId), [vendorId]);
   const stalls = useMemo(() => vendor ? getStallsByVendor(vendor.id) : [], [vendor]);
   const payments = useMemo(() => vendor ? getPaymentsByVendor(vendor.id).slice(0, 10) : [], [vendor]);
   const inspections = useMemo(() => vendor ? getInspectionsByVendor(vendor.id).slice(0, 10) : [], [vendor]);
+  const timeline = useMemo(() => vendor ? getTimelineByVendor(vendor.id) : [], [vendor]);
 
   if (!vendor) {
     return (
@@ -119,6 +139,10 @@ const VendorDetailPage: React.FC = () => {
 
   const toggleInspection = (id: string) => {
     setExpandedInspection(expandedInspection === id ? null : id);
+  };
+
+  const toggleTimeline = (id: string) => {
+    setExpandedTimeline(expandedTimeline === id ? null : id);
   };
 
   const getPaymentStatusType = (status: string) => {
@@ -465,6 +489,94 @@ const VendorDetailPage: React.FC = () => {
                       )}
                     </View>
                   )}
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View className={styles.card}>
+          <View className={styles.sectionTitle}>
+            <View className={styles.titleBar} />
+            <Text>动态时间线</Text>
+            <Text className={styles.sectionCount}>共{timeline.length}条</Text>
+          </View>
+          {timeline.length === 0 ? (
+            <View style={{ padding: '32rpx', textAlign: 'center' }}>
+              <Text style={{ fontSize: '26rpx', color: '#86909c' }}>暂无动态记录</Text>
+            </View>
+          ) : (
+            <View className={styles.timeline}>
+              {timeline.map((event: TimelineEvent, index: number) => (
+                <View key={event.id} className={styles.timelineItem}>
+                  <View className={styles.timelineLeft}>
+                    <View className={classnames(styles.timelineLine, index === 0 && styles.timelineLineFirst, index === timeline.length - 1 && styles.timelineLineLast)} />
+                    <View className={styles.timelineDot}>
+                      <Text className={styles.timelineDotIcon}>{TIMELINE_TYPE_ICON[event.type] || '📋'}</Text>
+                    </View>
+                  </View>
+                  <View className={styles.timelineRight}>
+                    <View className={styles.timelineHeader} onClick={() => toggleTimeline(event.id)}>
+                      <View className={styles.timelineMain}>
+                        <View className={styles.timelineTitleRow}>
+                          <Text className={styles.timelineTitle}>{event.title}</Text>
+                          <StatusTag
+                            text={TIMELINE_TYPE_TEXT[event.type] || '其他'}
+                            type={event.statusType || 'info'}
+                            size="sm"
+                            style={{ marginLeft: '12rpx' }}
+                          />
+                        </View>
+                        <Text className={styles.timelineSub}>
+                          {event.date} · {event.operator || '系统'}
+                        </Text>
+                      </View>
+                      <View className={styles.timelineRightEnd}>
+                        {event.amount !== undefined && (
+                          <Text className={classnames(
+                            styles.timelineAmount,
+                            event.statusType === 'success' && styles.amountSuccess,
+                            event.statusType === 'warning' && styles.amountWarning
+                          )}>
+                            {event.status === '已退款' || event.status === '退款中' ? '-' : ''}¥{event.amount.toLocaleString()}
+                          </Text>
+                        )}
+                        {event.status && (
+                          <StatusTag
+                            text={event.status}
+                            type={event.statusType || 'default'}
+                            size="sm"
+                            style={{ marginTop: '6rpx' }}
+                          />
+                        )}
+                        <Text className={styles.timelineArrow}>
+                          {expandedTimeline === event.id ? '▲' : '▼'}
+                        </Text>
+                      </View>
+                    </View>
+                    {expandedTimeline === event.id && (
+                      <View className={styles.timelineDetail}>
+                        <View className={styles.detailRowBlock}>
+                          <Text className={styles.detailLabel}>详情</Text>
+                          <Text className={styles.detailValueBlock}>
+                            {event.description}
+                          </Text>
+                        </View>
+                        {event.operator && (
+                          <View className={styles.detailRow}>
+                            <Text className={styles.detailLabel}>处理人</Text>
+                            <Text className={styles.detailValue}>{event.operator}</Text>
+                          </View>
+                        )}
+                        {event.date && (
+                          <View className={styles.detailRow}>
+                            <Text className={styles.detailLabel}>发生时间</Text>
+                            <Text className={styles.detailValue}>{event.date}</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
                 </View>
               ))}
             </View>

@@ -120,4 +120,19 @@ export interface Reminder {
   auditStatus?: 'pending' | 'approved' | 'rejected';
   auditRemark?: string;
   auditDate?: string;
+  operator?: string;
+}
+
+export type TimelineEventType = 'license' | 'lease' | 'violation' | 'payment' | 'position_change' | 'audit';
+
+export interface TimelineEvent {
+  id: string;
+  type: TimelineEventType;
+  title: string;
+  description: string;
+  date: string;
+  operator?: string;
+  status?: string;
+  statusType?: 'success' | 'warning' | 'error' | 'info';
+  amount?: number;
 }
