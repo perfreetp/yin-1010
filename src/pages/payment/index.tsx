@@ -20,22 +20,31 @@ const statusText: Record<PaymentStatus, string> = {
 
 const PaymentPage: React.FC = () => {
   const { currentUser } = useUser();
+  const isVendor = currentUser.role === 'vendor';
   const [filter, setFilter] = useState<FilterType>('all');
 
+  const myVendor = useMemo(() => {
+    if (!isVendor) return null;
+    return mockVendors.find(v => v.name === currentUser.name) || mockVendors[0];
+  }, [isVendor, currentUser.name]);
+
+  const myPayments = useMemo(() => {
+    if (isVendor && myVendor) return getPaymentsByVendor(myVendor.id);
+    return mockPayments;
+  }, [isVendor, myVendor]);
+
   const filteredPayments = useMemo(() => {
-    let list = mockPayments;
-    if (currentUser.role === 'vendor') {
-      const myVendor = mockVendors.find(v => v.name === currentUser.name);
-      if (myVendor) list = getPaymentsByVendor(myVendor.id);
-    }
+    let list = myPayments;
     if (filter !== 'all') {
       list = list.filter(p => p.status === filter);
     }
     return list.sort((a, b) => new Date(b.createDate).getTime() - new Date(a.createDate).getTime());
-  }, [filter, currentUser.name, currentUser.role]);
+  }, [filter, myPayments]);
 
-  const unpaid = useMemo(() => getPaymentsByStatus('unpaid'), []);
-  const totalUnpaid = useMemo(() => unpaid.reduce((sum, p) => sum + p.amount, 0), [unpaid]);
+  const myUnpaid = useMemo(() => myPayments.filter(p => p.status === 'unpaid'), [myPayments]);
+  const myPaid = useMemo(() => myPayments.filter(p => p.status === 'paid'), [myPayments]);
+  const myUnpaidTotal = useMemo(() => myUnpaid.reduce((sum, p) => sum + p.amount, 0), [myUnpaid]);
+  const myPaidTotal = useMemo(() => myPaid.reduce((sum, p) => sum + p.amount, 0), [myPaid]);
 
   const handlePay = (payment: Payment) => {
     console.log('[PaymentPage] 支付订单:', payment.id);
@@ -67,13 +76,13 @@ const PaymentPage: React.FC = () => {
 
   const handlePayAll = () => {
     console.log('[PaymentPage] 一键支付所有');
-    if (totalUnpaid === 0) {
+    if (myUnpaidTotal === 0) {
       Taro.showToast({ title: '暂无待支付', icon: 'none' });
       return;
     }
     Taro.showModal({
       title: '确认支付',
-      content: `确认支付所有待缴费用 ¥${totalUnpaid}？`,
+      content: `确认支付所有待缴费用 ¥${myUnpaidTotal}？`,
       success: (res) => {
         if (res.confirm) {
           Taro.showToast({ title: '支付成功', icon: 'success' });
@@ -86,20 +95,20 @@ const PaymentPage: React.FC = () => {
     <View className={styles.page}>
       <View className={styles.summaryCard}>
         <Text className={styles.summaryLabel}>
-          {currentUser.role === 'vendor' ? '待缴费用' : '本月待收'}
+          {isVendor ? '待缴费用' : '本月待收'}
         </Text>
         <View className={styles.summaryAmount}>
-          ¥{totalUnpaid.toLocaleString()}
+          ¥{myUnpaidTotal.toLocaleString()}
           <Text className={styles.summaryUnit}>元</Text>
         </View>
         <View className={styles.summaryRow}>
           <View className={styles.summaryItem}>
             <Text className={styles.summaryItemLabel}>待处理笔数</Text>
-            <Text className={styles.summaryItemValue}>{unpaid.length}笔</Text>
+            <Text className={styles.summaryItemValue}>{myUnpaid.length}笔</Text>
           </View>
           <View className={styles.summaryItem}>
             <Text className={styles.summaryItemLabel}>已支付</Text>
-            <Text className={styles.summaryItemValue}>¥{(mockPayments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0)).toLocaleString()}</Text>
+            <Text className={styles.summaryItemValue}>¥{myPaidTotal.toLocaleString()}</Text>
           </View>
         </View>
       </View>
@@ -180,7 +189,7 @@ const PaymentPage: React.FC = () => {
                       立即支付
                     </View>
                   )}
-                  {payment.status === 'paid' && currentUser.role === 'vendor' && (
+                  {payment.status === 'paid' && isVendor && (
                     <View className={classnames(styles.actionBtn, styles.btnRefund)} onClick={() => handleRefund(payment)}>
                       申请退费
                     </View>
@@ -196,16 +205,18 @@ const PaymentPage: React.FC = () => {
       )}
 
       <View className={styles.bottomBar}>
-        {currentUser.role === 'admin' && (
-          <View className={styles.btnExport} onClick={handleExport}>导出名单</View>
+        {isVendor ? (
+          <View className={styles.btnPayAll} onClick={handlePayAll}>
+            一键支付 ¥{myUnpaidTotal.toLocaleString()}
+          </View>
+        ) : (
+          <>
+            <View className={styles.btnExport} onClick={handleExport}>导出名单</View>
+            <View className={styles.btnExport} style={{ flex: 2, background: 'linear-gradient(135deg, #165dff 0%, #4080ff 100%)', color: '#fff', border: 'none' }} onClick={handleExport}>
+              导出数据
+            </View>
+          </>
         )}
-        <View
-          className={currentUser.role === 'admin' ? styles.btnExport : styles.btnPayAll}
-          style={currentUser.role !== 'admin' ? undefined : { flex: 2, background: 'linear-gradient(135deg, #165dff 0%, #4080ff 100%)', color: '#fff', border: 'none' }}
-          onClick={currentUser.role === 'admin' ? handleExport : handlePayAll}
-        >
-          {currentUser.role === 'vendor' ? `一键支付 ¥${totalUnpaid.toLocaleString()}` : '导出数据'}
-        </View>
       </View>
     </View>
   );

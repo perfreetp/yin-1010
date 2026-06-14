@@ -77,6 +77,39 @@
   margin-top: -$spacing-xl;
 }
 
+.tabBar {
+  display: flex;
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: 8rpx;
+  box-shadow: $shadow-card;
+  margin-bottom: $spacing-md;
+}
+
+.tabItem {
+  flex: 1;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-md;
+  transition: all $transition-base;
+}
+
+.tabItemActive {
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+}
+
+.tabText {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  font-weight: $font-weight-medium;
+}
+
+.tabTextActive {
+  color: $color-text-white;
+}
+
 .statsGrid {
   display: flex;
   flex-wrap: wrap;
@@ -115,7 +148,7 @@
 .colorWarning .statValue { color: $color-warning; }
 .colorError .statValue { color: $color-error; }
 
-.quickActions {
+.card {
   background: $color-bg-card;
   border-radius: $radius-lg;
   padding: $spacing-lg;
@@ -146,64 +179,35 @@
   margin-right: $spacing-sm;
 }
 
-.actionGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: $spacing-sm;
-}
-
-.actionItem {
-  width: calc(25% - 12rpx);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: $spacing-sm 0;
-  border-radius: $radius-md;
-  transition: all $transition-base;
-
-  &:active {
-    background: $color-bg-hover;
-    transform: scale(0.95);
-  }
-}
-
-.actionIcon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: $radius-lg;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32rpx;
-  margin-bottom: 8rpx;
-}
-
-.icon1 { background: linear-gradient(135deg, #e8f3ff 0%, #c7dcff 100%); }
-.icon2 { background: linear-gradient(135deg, #e8ffea 0%, #c7ffcc 100%); }
-.icon3 { background: linear-gradient(135deg, #fff4e8 0%, #ffddc7 100%); }
-.icon4 { background: linear-gradient(135deg, #ffe8e8 0%, #ffc7c7 100%); }
-.icon5 { background: linear-gradient(135deg, #f0e8ff 0%, #dcc7ff 100%); }
-.icon6 { background: linear-gradient(135deg, #e8fffb 0%, #c7fff4 100%); }
-.icon7 { background: linear-gradient(135deg, #fff0e8 0%, #ffd4c7 100%); }
-.icon8 { background: linear-gradient(135deg, #ffe8f5 0%, #ffc7e4 100%); }
-
-.actionText {
-  font-size: $font-size-xs;
-  color: $color-text-primary;
-  font-weight: $font-weight-medium;
-}
-
-.listSection {
-  background: $color-bg-card;
-  border-radius: $radius-lg;
-  padding: $spacing-lg;
-  box-shadow: $shadow-card;
-  margin-bottom: $spacing-md;
-}
-
 .moreBtn {
   font-size: $font-size-sm;
   color: $color-primary;
+}
+
+.leaseItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $spacing-md 0;
+  border-bottom: 1rpx solid $color-divider;
+
+  &:last-child { border-bottom: none; }
+}
+
+.leaseLeft {
+  flex: 1;
+}
+
+.leaseVendor {
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  color: $color-text-primary;
+}
+
+.leaseStall {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+  margin-top: 4rpx;
 }
 
 .listItem {
@@ -213,9 +217,7 @@
   padding: $spacing-md 0;
   border-bottom: 1rpx solid $color-divider;
 
-  &:last-child {
-    border-bottom: none;
-  }
+  &:last-child { border-bottom: none; }
 }
 
 .listLeft {
@@ -248,4 +250,261 @@
 .listStatus {
   font-size: $font-size-xs;
   margin-top: 6rpx;
+}
+
+.filterRow {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.filterItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.filterLabel {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  font-weight: $font-weight-medium;
+  margin-bottom: $spacing-sm;
+}
+
+.filterOptions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.filterScroll {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+}
+
+.filterOpt {
+  height: 56rpx;
+  padding: 0 $spacing-md;
+  background: $color-bg-page;
+  border-radius: $radius-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all $transition-base;
+}
+
+.filterOptActive {
+  background: $color-primary-bg;
+  border: 2rpx solid $color-primary;
+}
+
+.filterOptText {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+}
+
+.filterOptTextActive {
+  color: $color-primary;
+  font-weight: $font-weight-medium;
+}
+
+.countTag {
+  font-size: $font-size-sm;
+  color: $color-primary;
+  margin-left: $spacing-sm;
+  background: $color-primary-bg;
+  padding: 2rpx 16rpx;
+  border-radius: $radius-xs;
+}
+
+.exportBtn {
+  padding: 8rpx $spacing-md;
+  background: $color-primary-bg;
+  border-radius: $radius-md;
+}
+
+.exportBtnText {
+  font-size: $font-size-sm;
+  color: $color-primary;
+  font-weight: $font-weight-medium;
+}
+
+.vendorItem {
+  display: flex;
+  align-items: center;
+  padding: $spacing-md 0;
+  border-bottom: 1rpx solid $color-divider;
+
+  &:last-child { border-bottom: none; }
+}
+
+.vendorAvatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: $color-primary-bg;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: $spacing-md;
+  flex-shrink: 0;
+}
+
+.vendorAvatarText {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-bold;
+  color: $color-primary;
+}
+
+.vendorInfo {
+  flex: 1;
+}
+
+.vendorNameRow {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.vendorName {
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.vendorMeta {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+  margin-top: 6rpx;
+}
+
+.vendorArrow {
+  font-size: $font-size-lg;
+  color: $color-text-tertiary;
+  margin-left: $spacing-sm;
+}
+
+.leaseCard {
+  padding: $spacing-lg 0;
+  border-bottom: 1rpx solid $color-divider;
+
+  &:last-child { border-bottom: none; }
+}
+
+.leaseCardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.leaseCardLeft {
+  flex: 1;
+}
+
+.leaseCardVendor {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.leaseCardStall {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  margin-top: 4rpx;
+}
+
+.leaseCardInfo {
+  display: flex;
+  gap: $spacing-lg;
+  margin-top: $spacing-md;
+  padding: $spacing-md;
+  background: $color-bg-page;
+  border-radius: $radius-md;
+}
+
+.leaseInfoItem {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.leaseInfoLabel {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.leaseInfoValue {
+  font-size: $font-size-sm;
+  color: $color-text-primary;
+  font-weight: $font-weight-medium;
+  margin-top: 4rpx;
+}
+
+.textError {
+  color: $color-error;
+}
+
+.leaseCardActions {
+  display: flex;
+  gap: $spacing-sm;
+  margin-top: $spacing-md;
+}
+
+.leaseActionBtn {
+  flex: 1;
+  height: 64rpx;
+  background: $color-bg-page;
+  border-radius: $radius-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all $transition-base;
+
+  &:active { transform: scale(0.98); opacity: 0.9; }
+}
+
+.leaseActionPrimary {
+  background: $color-primary-bg;
+  border: 1rpx solid $color-primary;
+}
+
+.leaseActionSuccess {
+  background: $color-success-bg;
+  border: 1rpx solid $color-success;
+}
+
+.leaseActionText {
+  font-size: $font-size-xs;
+  color: $color-text-secondary;
+  font-weight: $font-weight-medium;
+}
+
+.leaseActionTextPrimary {
+  color: $color-primary;
+}
+
+.leaseActionTextSuccess {
+  color: $color-success;
+}
+
+.leaseSummary {
+  padding-top: $spacing-md;
+  margin-top: $spacing-sm;
+  border-top: 1rpx solid $color-divider;
+}
+
+.leaseSummaryText {
+  font-size: $font-size-sm;
+  color: $color-text-tertiary;
+  text-align: center;
+}
+
+.emptyState {
+  padding: $spacing-xl * 2 0;
+  text-align: center;
+}
+
+.emptyText {
+  font-size: $font-size-md;
+  color: $color-text-tertiary;
 }

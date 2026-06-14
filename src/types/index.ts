@@ -46,11 +46,14 @@ export interface Vendor {
   auditStatus: AuditStatus;
   licenseStatus: AuditStatus;
   licenseExpireDate?: string;
+  healthCertExpireDate?: string;
   businessLicense?: string;
   idCardFront?: string;
   idCardBack?: string;
   applyDate: string;
   auditRemark?: string;
+  renewalStatus?: 'none' | 'pending' | 'renewed' | 'changed';
+  lastRemindDate?: string;
 }
 
 export interface Payment {

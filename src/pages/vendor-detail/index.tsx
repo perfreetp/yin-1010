@@ -1,13 +1,32 @@
 import React, { useMemo } from 'react';
 import { View, Text } from '@tarojs/components';
 import Taro, { useRouter } from '@tarojs/taro';
+import classnames from 'classnames';
 import StatusTag from '@/components/StatusTag';
 import { useUser } from '@/store/user-context';
-import { mockVendors, getVendorById } from '@/data/vendors';
+import { getVendorById } from '@/data/vendors';
 import { getStallsByVendor } from '@/data/stalls';
 import { getPaymentsByVendor } from '@/data/payments';
-import { mockInspections } from '@/data/inspections';
+import { getInspectionsByVendor } from '@/data/inspections';
 import styles from './index.module.scss';
+
+const NOW = new Date('2026-06-14');
+const THIRTY_DAYS_MS = 30 * 24 * 3600 * 1000;
+
+const RENEWAL_STATUS_MAP: Record<string, { text: string; type: 'success' | 'pending' | 'warning' | 'info' }> = {
+  none: { text: '未续期', type: 'info' },
+  pending: { text: '续期中', type: 'pending' },
+  renewed: { text: '已续期', type: 'success' },
+  changed: { text: '已变更', type: 'warning' },
+};
+
+const getLicenseStatus = (expireDate?: string) => {
+  if (!expireDate) return { text: '未知', type: 'default' as const };
+  const d = new Date(expireDate);
+  if (d < NOW) return { text: '已过期', type: 'error' as const };
+  if (d.getTime() - NOW.getTime() < THIRTY_DAYS_MS) return { text: '即将到期', type: 'warning' as const };
+  return { text: '有效', type: 'success' as const };
+};
 
 const VendorDetailPage: React.FC = () => {
   const router = useRouter();
@@ -17,12 +36,7 @@ const VendorDetailPage: React.FC = () => {
   const vendor = useMemo(() => getVendorById(vendorId), [vendorId]);
   const stalls = useMemo(() => vendor ? getStallsByVendor(vendor.id) : [], [vendor]);
   const payments = useMemo(() => vendor ? getPaymentsByVendor(vendor.id).slice(0, 5) : [], [vendor]);
-  const inspections = useMemo(() => {
-    if (!vendor) return [];
-    return mockInspections
-      .filter(i => i.stallNo === stalls[0]?.stallNo)
-      .slice(0, 3);
-  }, [vendor, stalls]);
+  const inspections = useMemo(() => vendor ? getInspectionsByVendor(vendor.id).slice(0, 3) : [], [vendor]);
 
   if (!vendor) {
     return (
@@ -35,22 +49,30 @@ const VendorDetailPage: React.FC = () => {
   }
 
   const handleCall = () => {
-    console.log('[VendorDetail] 拨打电话:', vendor.phone);
-    Taro.makePhoneCall({ phoneNumber: vendor.phone });
-  };
-
-  const handleSendMessage = () => {
-    console.log('[VendorDetail] 发送消息给:', vendor.name);
-    Taro.showToast({ title: '消息功能开发中', icon: 'none' });
+    Taro.showModal({
+      title: '拨打电话',
+      content: `确认拨打 ${vendor.name} 的电话 ${vendor.phone}？`,
+      success: (res) => {
+        if (res.confirm) {
+          Taro.makePhoneCall({ phoneNumber: vendor.phone });
+        }
+      }
+    });
   };
 
   const handleChangeStall = () => {
-    console.log('[VendorDetail] 调整摊位');
-    Taro.showToast({ title: '摊位调整功能开发中', icon: 'none' });
+    Taro.showModal({
+      title: '调整摊位',
+      content: `确认为 ${vendor.name} 调整摊位？调整后将通知摊主。`,
+      success: (res) => {
+        if (res.confirm) {
+          Taro.showToast({ title: '摊位调整申请已提交', icon: 'success' });
+        }
+      }
+    });
   };
 
   const handleRemindLicense = () => {
-    console.log('[VendorDetail] 提醒证照到期');
     Taro.showModal({
       title: '发送提醒',
       content: `确认向 ${vendor.name} 发送证照到期提醒？`,
@@ -61,6 +83,21 @@ const VendorDetailPage: React.FC = () => {
       }
     });
   };
+
+  const handleContactAdmin = () => {
+    Taro.showModal({
+      title: '联系管理员',
+      content: '确认拨打市场管理员电话？',
+      success: (res) => {
+        if (res.confirm) {
+          Taro.makePhoneCall({ phoneNumber: '010-12345678' });
+        }
+      }
+    });
+  };
+
+  const licenseStatus = getLicenseStatus(vendor.licenseExpireDate);
+  const healthCertStatus = getLicenseStatus(vendor.healthCertExpireDate);
 
   return (
     <View className={styles.page}>
@@ -90,7 +127,7 @@ const VendorDetailPage: React.FC = () => {
           <View className={styles.infoGrid}>
             <View className={styles.infoItem}>
               <Text className={styles.infoLabel}>身份证号</Text>
-              <Text className={styles.infoValue}>{vendor.idCard || '310***********1234'}</Text>
+              <Text className={styles.infoValue}>{vendor.idCard}</Text>
             </View>
             <View className={styles.infoItem}>
               <Text className={styles.infoLabel}>经营品类</Text>
@@ -106,6 +143,24 @@ const VendorDetailPage: React.FC = () => {
                 ¥{payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0).toLocaleString()}
               </Text>
             </View>
+            {vendor.renewalStatus && vendor.renewalStatus !== 'none' && (
+              <View className={styles.infoItem}>
+                <Text className={styles.infoLabel}>续期状态</Text>
+                <Text className={styles.infoValue}>
+                  <StatusTag
+                    text={RENEWAL_STATUS_MAP[vendor.renewalStatus]?.text || '未知'}
+                    type={RENEWAL_STATUS_MAP[vendor.renewalStatus]?.type || 'default'}
+                    size="sm"
+                  />
+                </Text>
+              </View>
+            )}
+            {vendor.lastRemindDate && (
+              <View className={styles.infoItem}>
+                <Text className={styles.infoLabel}>上次提醒</Text>
+                <Text className={styles.infoValue}>{vendor.lastRemindDate}</Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -135,8 +190,13 @@ const VendorDetailPage: React.FC = () => {
                     />
                   </Text>
                   <Text className={styles.stallMeta}>
-                    租金：¥{stall.price.toLocaleString()}/月 | 面积：{stall.area || 6}㎡
+                    租金：¥{stall.price.toLocaleString()}/月 | {stall.width}×{stall.height}cm
                   </Text>
+                  {stall.leaseStart && stall.leaseEnd && (
+                    <Text className={styles.stallMeta}>
+                      租期：{stall.leaseStart} ~ {stall.leaseEnd}
+                    </Text>
+                  )}
                 </View>
               </View>
             ))
@@ -156,13 +216,15 @@ const VendorDetailPage: React.FC = () => {
               <Text className={styles.licenseName}>
                 营业执照
                 <StatusTag
-                  text={new Date(vendor.licenseExpiry) < new Date() ? '已过期' : new Date(vendor.licenseExpiry).getTime() - Date.now() < 30 * 24 * 3600 * 1000 ? '即将到期' : '有效'}
-                  type={new Date(vendor.licenseExpiry) < new Date() ? 'error' : new Date(vendor.licenseExpiry).getTime() - Date.now() < 30 * 24 * 3600 * 1000 ? 'warning' : 'success'}
+                  text={licenseStatus.text}
+                  type={licenseStatus.type}
                   size="sm"
                   style={{ marginLeft: '16rpx' }}
                 />
               </Text>
-              <Text className={styles.licenseExpiry}>有效期至：{vendor.licenseExpiry}</Text>
+              <Text className={styles.licenseExpiry}>
+                有效期至：{vendor.licenseExpireDate || '未上传'}
+              </Text>
             </View>
           </View>
           <View className={styles.licenseItem}>
@@ -179,8 +241,18 @@ const VendorDetailPage: React.FC = () => {
               <Text>🧾</Text>
             </View>
             <View className={styles.licenseInfo}>
-              <Text className={styles.licenseName}>健康证</Text>
-              <Text className={styles.licenseExpiry}>有效期至：2025-08-15</Text>
+              <Text className={styles.licenseName}>
+                健康证
+                <StatusTag
+                  text={healthCertStatus.text}
+                  type={healthCertStatus.type}
+                  size="sm"
+                  style={{ marginLeft: '16rpx' }}
+                />
+              </Text>
+              <Text className={styles.licenseExpiry}>
+                有效期至：{vendor.healthCertExpireDate || '未上传'}
+              </Text>
             </View>
           </View>
         </View>
@@ -203,10 +275,10 @@ const VendorDetailPage: React.FC = () => {
                     <Text className={styles.paymentDate}>{payment.payDate || payment.createDate}</Text>
                   </View>
                   <Text
-                    className={styles.paymentAmount}
-                    style={{
-                      color: payment.status === 'paid' ? '#00b42a' : payment.status === 'unpaid' ? '#f53f3f' : '#86909c'
-                    }}
+                    className={classnames(styles.paymentAmount, {
+                      [styles.paymentPaid]: payment.status === 'paid',
+                      [styles.paymentUnpaid]: payment.status === 'unpaid',
+                    })}
                   >
                     {payment.status === 'refunded' ? '-' : ''}¥{payment.amount.toLocaleString()}
                   </Text>
@@ -235,7 +307,7 @@ const VendorDetailPage: React.FC = () => {
                   <Text className={styles.inspectionDesc}>{record.description}</Text>
                   <Text className={styles.inspectionDate}>
                     {record.date} · {record.inspectorName}
-                    {record.hygieneScore && ` · 评分${record.hygieneScore}/10`}
+                    {record.hygieneScore ? ` · 评分${record.hygieneScore}/10` : ''}
                   </Text>
                 </View>
               </View>
@@ -259,11 +331,14 @@ const VendorDetailPage: React.FC = () => {
           </>
         ) : (
           <>
-            <View className={styles.btnSecondary} onClick={handleSendMessage}>
+            <View className={styles.btnSecondary} onClick={handleContactAdmin}>
               <Text>💬 联系管理员</Text>
             </View>
             <View className={styles.btnPrimary} onClick={() => Taro.navigateTo({ url: '/pages/payment/index' })}>
               <Text>查看缴费</Text>
+            </View>
+            <View className={styles.btnSuccess} onClick={() => Taro.navigateTo({ url: '/pages/license/index' })}>
+              <Text>我的证照</Text>
             </View>
           </>
         )}

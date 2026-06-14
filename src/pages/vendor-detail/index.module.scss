@@ -245,6 +245,14 @@
   font-weight: $font-weight-bold;
 }
 
+.paymentPaid {
+  color: #00b42a;
+}
+
+.paymentUnpaid {
+  color: #f53f3f;
+}
+
 .inspectionItem {
   display: flex;
   padding: $spacing-md 0;
