@@ -1,0 +1,258 @@
+@use '@/styles/variables.scss' as *;
+
+.page {
+  min-height: 100vh;
+  background: $color-bg-page;
+  padding-bottom: 160rpx;
+}
+
+.summaryCard {
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+  margin: $spacing-md $page-padding;
+  border-radius: $radius-xl;
+  padding: $spacing-xl;
+  color: $color-text-white;
+}
+
+.summaryLabel {
+  font-size: $font-size-sm;
+  opacity: 0.85;
+}
+
+.summaryAmount {
+  font-size: 64rpx;
+  font-weight: $font-weight-bold;
+  margin-top: $spacing-xs;
+}
+
+.summaryUnit {
+  font-size: $font-size-md;
+  font-weight: $font-weight-normal;
+  margin-left: 8rpx;
+}
+
+.summaryRow {
+  display: flex;
+  margin-top: $spacing-lg;
+  gap: $spacing-xl * 2;
+}
+
+.summaryItem {
+  display: flex;
+  flex-direction: column;
+}
+
+.summaryItemLabel {
+  font-size: $font-size-xs;
+  opacity: 0.7;
+}
+
+.summaryItemValue {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  margin-top: 4rpx;
+}
+
+.filterTabs {
+  display: flex;
+  background: $color-bg-card;
+  margin: 0 $page-padding;
+  border-radius: $radius-lg;
+  padding: 8rpx;
+  box-shadow: $shadow-card;
+  margin-bottom: $spacing-md;
+}
+
+.filterTab {
+  flex: 1;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-md;
+  transition: all $transition-base;
+}
+
+.filterTabActive {
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+}
+
+.filterText {
+  font-size: $font-size-sm;
+  color: $color-text-secondary;
+  font-weight: $font-weight-medium;
+}
+
+.filterTextActive {
+  color: $color-text-white;
+}
+
+.paymentList {
+  padding: 0 $page-padding;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+.paymentCard {
+  background: $color-bg-card;
+  border-radius: $radius-lg;
+  padding: $spacing-lg;
+  box-shadow: $shadow-card;
+}
+
+.paymentHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-md;
+}
+
+.paymentTitle {
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: $color-text-primary;
+}
+
+.paymentAmount {
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+}
+
+.amountUnpaid {
+  color: $color-error;
+}
+
+.amountPaid {
+  color: $color-success;
+}
+
+.amountRefunding {
+  color: $color-warning;
+}
+
+.amountRefunded {
+  color: $color-text-tertiary;
+}
+
+.paymentInfo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  padding-top: $spacing-md;
+  border-top: 1rpx solid $color-divider;
+}
+
+.infoItem {
+  width: calc(50% - 8rpx);
+  display: flex;
+  flex-direction: column;
+}
+
+.infoLabel {
+  font-size: $font-size-xs;
+  color: $color-text-tertiary;
+}
+
+.infoValue {
+  font-size: $font-size-sm;
+  color: $color-text-primary;
+  margin-top: 4rpx;
+  font-weight: $font-weight-medium;
+}
+
+.paymentActions {
+  display: flex;
+  gap: $spacing-sm;
+  margin-top: $spacing-lg;
+  padding-top: $spacing-md;
+  border-top: 1rpx solid $color-divider;
+}
+
+.actionBtn {
+  flex: 1;
+  height: $button-height-md;
+  border-radius: $radius-button;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  transition: all $transition-base;
+
+  &:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+.btnPay {
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+  color: $color-text-white;
+}
+
+.btnRefund {
+  background: $color-warning-bg;
+  color: $color-warning;
+}
+
+.btnDetail {
+  background: $color-bg-page;
+  color: $color-text-secondary;
+}
+
+.bottomBar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: $color-bg-card;
+  padding: $spacing-md $page-padding;
+  padding-bottom: calc($spacing-md + env(safe-area-inset-bottom));
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.08);
+  display: flex;
+  gap: $spacing-md;
+}
+
+.btnExport {
+  flex: 1;
+  height: $button-height-lg;
+  background: $color-bg-card;
+  border: 2rpx solid $color-border;
+  border-radius: $radius-button;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-md;
+  color: $color-text-secondary;
+  font-weight: $font-weight-semibold;
+}
+
+.btnPayAll {
+  flex: 2;
+  height: $button-height-lg;
+  background: linear-gradient(135deg, $color-primary 0%, $color-primary-light 100%);
+  border-radius: $radius-button;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $font-size-md;
+  color: $color-text-white;
+  font-weight: $font-weight-semibold;
+  box-shadow: 0 8rpx 24rpx rgba(22, 93, 255, 0.35);
+}
+
+.emptyState {
+  padding: $spacing-xl * 3 0;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 100rpx;
+  margin-bottom: $spacing-md;
+}
+
+.emptyText {
+  font-size: $font-size-md;
+  color: $color-text-tertiary;
+}
