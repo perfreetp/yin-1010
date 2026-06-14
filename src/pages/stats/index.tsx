@@ -111,15 +111,31 @@ const StatsPage: React.FC = () => {
     });
   };
 
-  const handleRegisterRenewal = (vendorId: string, vendorName: string, stallId: string) => {
+  const handleRegisterRenewal = (vendorId: string, vendorName: string, stallId: string, stallNo: string) => {
     console.log('[StatsPage] 登记续租:', vendorId);
     Taro.showModal({
       title: '登记续租',
       content: `确认为 ${vendorName} 登记续租1个月？租期将自动延长。`,
       success: (res) => {
         if (res.confirm) {
+          const stall = mockStalls.find(s => s.id === stallId);
+          const oldEnd = stall?.leaseEnd;
           extendStallLease(stallId, 1);
           setVendorRenewalStatus(vendorId, 'renewed');
+          updateVendor(vendorId, { lastRenewDate: NOW_DATE });
+          const updatedStall = mockStalls.find(s => s.id === stallId);
+          addReminder({
+            vendorId,
+            vendorName,
+            type: 'lease',
+            title: '摊位续租成功',
+            content: `您的摊位${stallNo}续租1个月已登记。原租期至${oldEnd || ''}，已延长至${updatedStall?.leaseEnd || ''}。`,
+            sendDate: NOW_TIME,
+            auditStatus: 'approved',
+            auditDate: NOW_TIME,
+            auditRemark: '续租手续已完成',
+            operator: currentUser.name
+          });
           triggerRefresh();
           Taro.showToast({ title: '续租已登记', icon: 'success' });
         }
@@ -171,7 +187,21 @@ const StatsPage: React.FC = () => {
               updateVendor(vendorId, {
                 stallId: targetStall.id,
                 stallNo: targetStall.stallNo,
-                renewalStatus: 'changed'
+                renewalStatus: 'changed',
+                lastChangeDate: NOW_TIME
+              });
+
+              addReminder({
+                vendorId,
+                vendorName,
+                type: 'lease',
+                title: '摊位调整通知',
+                content: `您的摊位已完成调整，从摊位${stallNo}调换至摊位${targetStall.stallNo}（${targetStall.zone}区），请按新位置布摊。`,
+                sendDate: NOW_TIME,
+                auditStatus: 'approved',
+                auditDate: NOW_TIME,
+                auditRemark: '换位手续已完成',
+                operator: currentUser.name
               });
 
               triggerRefresh();
@@ -460,7 +490,7 @@ const StatsPage: React.FC = () => {
                     </View>
                     <View
                       className={classnames(styles.leaseActionBtn, styles.leaseActionPrimary)}
-                      onClick={() => handleRegisterRenewal(item.vendor.id, item.vendor.name, item.stall.id)}
+                      onClick={() => handleRegisterRenewal(item.vendor.id, item.vendor.name, item.stall.id, item.stall.stallNo)}
                     >
                       <Text className={classnames(styles.leaseActionText, styles.leaseActionTextPrimary)}>登记续租</Text>
                     </View>

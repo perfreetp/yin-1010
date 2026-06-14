@@ -8,7 +8,7 @@ import { getVendorById, getTimelineByVendor } from '@/data/vendors';
 import { getStallsByVendor } from '@/data/stalls';
 import { getPaymentsByVendor } from '@/data/payments';
 import { getInspectionsByVendor } from '@/data/inspections';
-import { Payment, Inspection, TimelineEvent } from '@/types';
+import { Payment, Inspection, TimelineEvent, AuditStatus } from '@/types';
 import styles from './index.module.scss';
 
 const NOW = new Date('2026-06-14');
@@ -53,8 +53,18 @@ const INSPECTION_TYPE_COLOR: Record<string, string> = {
   other: 'default'
 };
 
-const getLicenseStatus = (expireDate?: string) => {
-  if (!expireDate) return { text: '未知', type: 'default' as const };
+const getLicenseStatus = (
+  expireDate?: string,
+  licenseStatus?: AuditStatus,
+  auditStatus?: AuditStatus
+) => {
+  if (auditStatus === 'pending' || licenseStatus === 'pending') {
+    return { text: '审核中', type: 'warning' as const };
+  }
+  if (auditStatus === 'rejected' || licenseStatus === 'rejected') {
+    return { text: '已拒绝', type: 'error' as const };
+  }
+  if (!expireDate) return { text: '未上传', type: 'default' as const };
   const d = new Date(expireDate);
   if (d < NOW) return { text: '已过期', type: 'error' as const };
   if (d.getTime() - NOW.getTime() < THIRTY_DAYS_MS) return { text: '即将到期', type: 'warning' as const };
@@ -153,8 +163,8 @@ const VendorDetailPage: React.FC = () => {
     return status === 'paid' ? '已支付' : status === 'unpaid' ? '待支付' : status === 'refunding' ? '退款中' : '已退款';
   };
 
-  const licenseStatus = getLicenseStatus(vendor.licenseExpireDate);
-  const healthCertStatus = getLicenseStatus(vendor.healthCertExpireDate);
+  const licenseStatus = getLicenseStatus(vendor.licenseExpireDate, vendor.licenseStatus, vendor.auditStatus);
+  const healthCertStatus = getLicenseStatus(vendor.healthCertExpireDate, vendor.licenseStatus, vendor.auditStatus);
   const totalPaid = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount, 0);
   const totalUnpaid = payments.filter(p => p.status === 'unpaid').reduce((s, p) => s + p.amount, 0);
 

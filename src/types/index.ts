@@ -54,6 +54,8 @@ export interface Vendor {
   auditRemark?: string;
   renewalStatus?: 'none' | 'pending' | 'renewed' | 'changed';
   lastRemindDate?: string;
+  lastChangeDate?: string;
+  lastRenewDate?: string;
 }
 
 export interface Payment {

@@ -215,14 +215,33 @@ export const getTimelineByVendor = (vendorId: string): import('@/types').Timelin
           type: 'position_change',
           title: '摊位调整',
           description: `已调整至摊位${stalls[0].stallNo}（${stalls[0].zone}区）`,
-          date: vendor.lastRemindDate || NOW_DATE,
+          date: vendor.lastChangeDate || NOW_TIME,
           operator: '管理员',
           status: '已完成',
           statusType: 'success'
         });
       }
     }
+
+    if (vendor.renewalStatus === 'renewed' && vendor.lastRenewDate) {
+      const stalls = getStallsByVendor(vendorId);
+      events.push({
+        id: 'renew_' + vendor.id,
+        type: 'lease',
+        title: '租期续租',
+        description: stalls.length > 0 ? `摊位${stalls[0].stallNo}续租成功，租期延长至${stalls[0].leaseEnd || ''}。` : '摊位续租手续已完成。',
+        date: vendor.lastRenewDate,
+        operator: '管理员',
+        status: '已办结',
+        statusType: 'success'
+      });
+    }
   }
 
-  return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return events.sort((a, b) => {
+    const parseDate = (s: string) => {
+      try { return new Date(s).getTime() || 0; } catch { return 0; }
+    };
+    return parseDate(b.date) - parseDate(a.date);
+  });
 };
